@@ -9,7 +9,7 @@ This repository contains solved exercises in the data analytics field.
 *This will be a showcase for different dashboard solutions as well as a kind of portfolio for the created analyses. Other than the report itself, this will focus on the visualization aspect*.
 
 ### Notice:
-Analysis and ML solutions will focus on a reasonable number of techniques and toolkits. So the goal is to deliver a solution that meets the requirements with a solution that tends to be simple but effective. This way, not every solution will include every possible solution in terms of data preprocessing, feature engineering, or creating missing values in datasets.\
+Analysis and ML solutions will focus on a reasonable number of techniques and toolkits. So the goal is to deliver a solution that meets the requirements with a solution that tends to be simple but effective. This way, not every solution will include every possible solution in terms of data preprocessing, feature engineering, or creating missing values in datasets.
 
 If you come up with the feeling that there is room for improvement or just want to know exactly what the thoughts behind a specific solution are, please let me know.
 I'd love to hear other points of view / possible solutions for these kinds of problems.
