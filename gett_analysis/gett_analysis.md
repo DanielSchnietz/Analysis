@@ -66,13 +66,18 @@ Estimated Time of Arrival
 
 ### Structure of the data
 
-| order_datetime | origin_longitude | origin_latitude | m_order_eta |     order_gk | order_status_key | is_driver_assigned_key | cancellations_time_in_seconds |
-|:---------------|-----------------:|----------------:|------------:|-------------:|-----------------:|-----------------------:|------------------------------:|
-| 18:08:07       |        -0.978916 |        51.45617 |          60 | 3.000583e+12 |                4 |                      1 |                           198 |
-| 20:57:32       |        -0.950385 |        51.45684 |          NA | 3.000583e+12 |                4 |                      0 |                           128 |
-| 12:07:50       |        -0.969520 |        51.45554 |         477 | 3.000583e+12 |                4 |                      1 |                            46 |
-| 13:50:20       |        -1.054671 |        51.46054 |         658 | 3.000583e+12 |                4 |                      1 |                            62 |
-| 21:24:45       |        -0.967605 |        51.45824 |          NA | 3.000583e+12 |                9 |                      0 |                            NA |
+| order_datetime | origin_longitude | origin_latitude | order_eta |     order_id | order_canceled_by | driver_assigned | cancellations_time_in_seconds | eta_missingness | cancellations_time_missingness |
+|:---------------|-----------------:|----------------:|----------:|-------------:|:------------------|:----------------|------------------------------:|:----------------|:-------------------------------|
+| 18:08:07       |        -0.978916 |        51.45617 |        60 | 3.000583e+12 | client            | TRUE            |                           198 | FALSE           | FALSE                          |
+| 20:57:32       |        -0.950385 |        51.45684 |         0 | 3.000583e+12 | client            | FALSE           |                           128 | TRUE            | FALSE                          |
+| 12:07:50       |        -0.969520 |        51.45554 |       477 | 3.000583e+12 | client            | TRUE            |                            46 | FALSE           | FALSE                          |
+| 13:50:20       |        -1.054671 |        51.46054 |       658 | 3.000583e+12 | client            | TRUE            |                            62 | FALSE           | FALSE                          |
+| 21:24:45       |        -0.967605 |        51.45824 |         0 | 3.000583e+12 | system            | FALSE           |                             0 | TRUE            | TRUE                           |
+| 21:21:23       |        -0.947011 |        51.45638 |         0 | 3.000583e+12 | system            | FALSE           |                             0 | TRUE            | TRUE                           |
+| 07:58:15       |        -0.955637 |        51.47037 |         0 | 3.000583e+12 | system            | FALSE           |                             0 | TRUE            | TRUE                           |
+| 07:53:46       |        -0.978230 |        51.45457 |         0 | 3.000583e+12 | system            | FALSE           |                             0 | TRUE            | TRUE                           |
+| 08:53:01       |        -1.052298 |        51.45431 |         0 | 3.000583e+12 | system            | FALSE           |                             0 | TRUE            | TRUE                           |
+| 06:33:52       |        -0.976216 |        51.43320 |         0 | 3.000583e+12 | client            | FALSE           |                            78 | TRUE            | FALSE                          |
 
 ### Distribution of canceled orders by client / system with both, driver assigned and no driver assigned.
 
@@ -95,7 +100,7 @@ cancellations are done at rush hour times (e.g. 8am and 17pm)
 
 ### Average time until order is canceled
 
-![](gett_analysis_files/figure-gfm/unnamed-chunk-3-1.png)<!-- -->
+![](gett_analysis_files/figure-gfm/unnamed-chunk-3-1.png)<!-- -->![](gett_analysis_files/figure-gfm/unnamed-chunk-3-2.png)<!-- -->![](gett_analysis_files/figure-gfm/unnamed-chunk-3-3.png)<!-- -->
 
 Mean tends to increase in the morning between 7am and 10am. Notice how
 the time for orders with no driver assigned tends to react in the other

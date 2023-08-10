@@ -3,6 +3,9 @@ title: "gett_analysis"
 author: "Daniel Schnietz"
 date: "2023-08-01"
 output: github_document
+editor_options: 
+  markdown: 
+    wrap: sentence
 ---
 
 ```{r setup, include=FALSE}
@@ -15,163 +18,232 @@ library(lubridate)
 library(DataExplorer)
 library(tidyverse)
 library(hrbrthemes)
+library(ggthemes)
 ```
 
 ## Notice:
 
-This is the RMD analysis document for the Gett dataset of Stratascratch.com. The analysis done is strictly done on the given tasks. Deeper analysis of the data with more / all given data and insights will follow in another showcase.
-Also the analysis is done with a reasonable toolkit. E.g. there are no missing values generated if it's not necessary to get reasonable good insights on the data.
-
+This is the RMD analysis document for the Gett dataset of Stratascratch.com.
+The analysis done is strictly done on the given tasks.
+Deeper analysis of the data with more / all given data and insights will follow in another showcase.
+Also the analysis is done with a reasonable toolkit.
+E.g. there are no missing values generated if it's not necessary to get reasonable good insights on the data.
 
 ## Introduction
 
-Gett wants to get insights on orders that didn't end up successfully in their GTM platform. I.e. a customer not getting a car. To further understand the distribution of cancellations across different hours over the day and cancellations done by the system / client we are analysing the provided data_orders dataset. 
+Gett wants to get insights on orders that didn't end up successfully in their GTM platform.
+I.e. a customer not getting a car.
+To further understand the distribution of cancellations across different hours over the day and cancellations done by the system / client we are analysing the provided data_orders dataset.
 The dataset contains 10716 entries of the following collumns:
 
-order_datetime 
+order_datetime
 
-origin_longitude 
+origin_longitude
 
-origin_latitude 
+origin_latitude
 
-m_order_eta 
+m_order_eta
 
-order_gk 
+order_gk
 
-order_status_key  
+order_status_key
 
-is_driver_assigned_key 
+is_driver_assigned_key
 
-cancellations_time_in_seconds 
-
+cancellations_time_in_seconds
 
 ##### This analysis includes insights on the following key questions:
 
-How orders according to reasons for failure are distributed? 
-Cancellations before and after driver assignment, and reasons for order rejection. Which category has the highest number of orders?
+How orders according to reasons for failure are distributed?
+Cancellations before and after driver assignment, and reasons for order rejection.
+Which category has the highest number of orders?
 
-Is there a trend that certain hours have an abnormally high proportion of one category or another? 
-What hours are the biggest fails? How can this be explained?
+Is there a trend that certain hours have an abnormally high proportion of one category or another?
+What hours are the biggest fails?
+How can this be explained?
 
-How does the assignment of a driver affect the average time to cancellation at different hours? 
+How does the assignment of a driver affect the average time to cancellation at different hours?
 
 How does the mean of the ETA look throughout the day?
 
-
-
-### Definitions 
+### Definitions
 
 ##### GTM:
+
 Ground Transportation Management
 
 #### ETA:
+
 Estimated Time of Arrival
 
 ## Analysis
 
 ```{r, echo = FALSE}
-data_offers <- read.csv("data_offers.csv")
-data_orders <- read.csv("data_orders.csv")
-subset_frame <- subset(data_orders, select = -c(m_order_eta))
+data_orders <- read.csv("C:/Users/dschn/IdeaProjects/analystpreperation/gett_analysis/data_orders.csv")
 
-#replace cancel reason key with words
-theme <- theme(panel.border = element_blank(), panel.grid.major = element_blank(),
-panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"))
+#-------------------------preprocessing----------------------------------------------------------
+#orders
 
-subset_frame <- subset_frame %>% 
-  mutate(order_status_key = ifelse(order_status_key == 4, "client", "system")) %>%
-  mutate(is_driver_assigned_key = ifelse(is_driver_assigned_key == 0, "No", "Yes"))
+theme_normal <- theme_set(theme_economist())
+theme_tilted <- theme_set(theme_economist())
+#create subset
+subset_frame <- data_orders %>%
+  rename(order_eta = m_order_eta, 
+         driver_assigned = is_driver_assigned_key,
+         order_canceled_by = order_status_key,
+         order_id = order_gk) %>%
+  mutate(order_canceled_by = ifelse(order_canceled_by == 4, "client", "system")) %>%
+  mutate(driver_assigned = ifelse(driver_assigned == 0, FALSE, TRUE)) %>%
+  mutate(order_canceled_by = as.factor(order_canceled_by))
+
+#No driver assigned at this point. Therefore no eta
+missing_etas <- subset_frame %>%
+  filter(is.na(order_eta)) %>%
+  group_by(order_canceled_by, 
+           driver_assigned) %>%
+  summarise(count = n()) %>%
+  ungroup()
+
+#order never approved and canceled beforehand by the system. Therefore no cancellations_time
+missing_cancellations_time <- subset_frame %>%
+  filter(is.na(cancellations_time_in_seconds)) %>%
+  group_by(order_canceled_by, 
+           driver_assigned) %>%
+  summarise(count = n()) %>%
+  ungroup()
+
+subset_frame <- subset_frame %>%
+  mutate(order_eta = replace_na(order_eta, 0)) %>%
+  mutate(cancellations_time_in_seconds = replace_na(cancellations_time_in_seconds, 0)) %>%
+  mutate(eta_missingness = ifelse(order_eta == 0, TRUE, FALSE), 
+            cancellations_time_missingness = ifelse(cancellations_time_in_seconds == 0, TRUE, FALSE))
+
+duplicates_orders <- subset_frame %>%
+  filter(duplicated(.))
+
+#--------------------------------end of preprocessing-----------------------------------------------------------------------------
 
 ```
-
 
 ### Structure of the data
 
 ```{r, echo = FALSE}
-knitr::kable(data_orders[0:5,])
+knitr::kable(subset_frame[0:10,])
 
 ```
-
-
 
 ### Distribution of canceled orders by client / system with both, driver assigned and no driver assigned.
 
 ```{r cancel_reason_before_assignment , echo=FALSE}
 
-subset_frame %>%
-  group_by(is_driver_assigned_key, order_status_key) %>%
-  summarise(reason = n()) %>%
+# Build up distribution of orders according to reasons for failure: 
+# cancellations before and after driver assignment, and reasons for order rejection. 
+# Analyse the resulting plot. Which category has the highest number of orders?
+
+
+# order by order_status and driver_assigned_status and create distribution
+
+cancel_reason_before_assignment <- subset_frame %>%
+  group_by(driver_assigned, order_canceled_by) %>%
+  summarise(count = n()) %>%
   ungroup() %>% 
-  ggplot(aes(x=order_status_key, y=reason, fill = is_driver_assigned_key)) + 
+  ggplot(aes(x=order_canceled_by, y=count, fill = driver_assigned)) + 
   geom_bar(position = 'dodge', stat='identity') + 
-  geom_text(aes(label=reason), position=position_dodge(width=0.9), vjust=-0.25)+
+  geom_text(aes(label=count), position=position_dodge(width=0.9), vjust=-0.25)+
   labs(y = "count(n)", x = "canceled order by", fill = "driver assigned") +
-  ggtitle("Orders canceled by cient / system before / after driver assignment") +
-  theme
+  ggtitle("Orders canceled by cient / system") +
+  theme_set(theme_normal)
+
+cancel_reason_before_assignment  
 ```
 
-Plot shows that most orders are canceled while there is no driver assigned. In terms of canceled orders by the system there are nearly no canceled orders once a driver is assigned (3).
+Plot shows that most orders are canceled while there is no driver assigned.
+In terms of canceled orders by the system there are nearly no canceled orders once a driver is assigned (3).
 
-
-If we take a closer look on canceled orders by hours, we see that cancellations by client are almost double the amount of cancellations by the system. This represents the results of the previous plot. Except for the time between 3am and 6am. At this time the cancellations by client go almost back to the amount of cancellations by the system. Highest cancellations are done at rush hour times (e.g. 8am and 17pm)
-
+If we take a closer look on canceled orders by hours, we see that cancellations by client are almost double the amount of cancellations by the system.
+This represents the results of the previous plot.
+Except for the time between 3am and 6am.
+At this time the cancellations by client go almost back to the amount of cancellations by the system.
+Highest cancellations are done at rush hour times (e.g. 8am and 17pm)
 
 ### Orders canceled by hour
 
 ```{r pressure, echo=FALSE}
+#Plot the distribution of failed orders by hours. 
+# Is there a trend that certain hours have an abnormally high proportion of one category or another? 
+# What hours are the biggest fails? How can this be explained?
 orders_by_daytime <- subset_frame %>%
-  group_by(time = format(floor_date(as.POSIXct(order_datetime, format="%H:%M"), "hour"),format="%H"), canceled_by = order_status_key) %>%
+  group_by(time = format(floor_date(as.POSIXct(order_datetime, format="%H:%M"), "hour"),format="%H:%M"), canceled_by = order_canceled_by) %>%
   summarise(canceled_orders = n()) %>%
   ungroup() 
 
-orders_by_daytime %>%
-  ggplot(aes(x = time, y = canceled_orders, group = canceled_by, colour=canceled_by)) +
-  geom_line(linewidth = 2) +
-  geom_point() +
-  ggtitle("canceled orders by hour") +
-  labs(x = "time(h)", y = "canceled_orders(n)")
+theme_set(theme_tilted)
+theme_update(axis.text.x = element_text(angle = 60, size = 8, vjust = 1))
 
+orders_by_daytime %>%
+  ggplot(aes(x = time, y = canceled_orders, group = canceled_by, colour=canceled_by, fill = canceled_by)) +
+  geom_bar(stat='identity') +
+  ggtitle("canceled orders by hour") 
+        
 
         
 ```
-
 
 ### Average time until order is canceled
 
 ```{r, echo = FALSE}
 filtered <- subset_frame %>%
-  filter(!is.na(cancellations_time_in_seconds))
+  filter(!cancellations_time_missingness)
+
 out <- boxplot.stats(filtered$cancellations_time_in_seconds)$out
+
+
+plot_correlation(na.omit(filtered), type = "c")
+
 
 #get rows of outleirs
 out_ind <- which(filtered$cancellations_time_in_seconds %in% c(out))
 
+#verify times considered as outliers
+#filtered[out_ind, ]
 
 #filter outliers
 outlier_filtered <- filtered %>% 
   filter(!(rownames(filtered) %in% out_ind))
 
 
+#verify data is without outliers
+
+outlier_filtered %>%
+  group_by(time = format(floor_date(as.POSIXct(order_datetime, format="%H:%M"), "hour"),format="%H:%M")) %>%
+  ggplot(aes(time, cancellations_time_in_seconds)) +
+  geom_boxplot(fill = "#0c4c8a")
+
 #plot mean by hour
 avg_time_data <- outlier_filtered %>%
-  group_by(time = format(floor_date(as.POSIXct(order_datetime, format="%H:%M"), "hour"),format="%H"), driver_assigned = is_driver_assigned_key) %>%
+  group_by(time = format(floor_date(as.POSIXct(order_datetime, format="%H:%M"), "hour"),format="%H"), driver_assigned = driver_assigned) %>%
   summarise(mean_time = mean(cancellations_time_in_seconds)) %>%
   ungroup() 
 
-avg_time_data %>%
+avg_time_plot <- avg_time_data %>%
   ggplot(aes(x = time, y = mean_time, group = driver_assigned, colour = driver_assigned)) +
   geom_line(linewidth = 2) +
   ggtitle("time until cancellation mean by hour") +
   labs(x="time(h)", y="mean_time(s)")
+avg_time_plot
 
 ```
 
-Mean tends to increase in the morning between 7am and 10am. Notice how the time for orders with no driver assigned tends to react in the other direction. As time for assigned driver orders goes down, time for orders with no driver assigned goes up.
+Mean tends to increase in the morning between 7am and 10am.
+Notice how the time for orders with no driver assigned tends to react in the other direction.
+As time for assigned driver orders goes down, time for orders with no driver assigned goes up.
 It seems like the time, time until the order is canceled and number of canceled orders are kinda related.
 
-### Verify insights on correlation 
+### Verify insights on correlation
 
 ```{r, echo = FALSE}
+#verify insights on correlations
+#class(avg_time_data$time)
 avg_time_data["time"] <- sapply(avg_time_data["time"],as.numeric)
 
 cor_data <- avg_time_data %>%
@@ -179,26 +251,27 @@ cor_data <- avg_time_data %>%
 
 plot_correlation(na.omit(cor_data))
 
+
 ```
-
-
 
 ### Mean ETA by hours
 
 ```{r, echo = FALSE}
-filtered_na <- data_orders %>%
-  filter(!is.na(m_order_eta)) 
+#Plot the distribution of average ETA by hours?
+#NOTICE: This data only represents the data for the "driver_assigned" == TRUE key
+filtered_eta <- subset_frame %>%
+  filter(!eta_missingness)
 
-avg_eta_data <- filtered_na %>%
-  group_by(time = format(floor_date(as.POSIXct(order_datetime, format="%H:%M"), "hour"),format="%H")) %>%
-  summarise(mean_eta = mean(m_order_eta)) %>%
+avg_eta_data <- filtered_eta %>%
+  group_by(time = format(floor_date(as.POSIXct(order_datetime, format="%H:%M"), "hour"),format="%H:%M")) %>%
+  summarise(mean_eta = mean(order_eta)) %>%
   ungroup() 
 
-avg_eta_data %>%
+avg_eta_plot <- avg_eta_data %>%
   ggplot(aes(x = time, y = mean_eta, group = 1)) +
-  geom_line(linewidth = 2, color="red") +
+  geom_bar(stat="identity", fill = "blue") +
   ggtitle("eta mean by hour")
-
+avg_eta_plot
 
 ```
 
@@ -206,9 +279,8 @@ This plot of the ETA just represents orders where a driver is already assigned, 
 ETA tends to increase in times of rush hour and drop down drastically at times where usually less traffic is on it's way.
 These time frames are those, where the most cancellations are observed.
 
-
 ### Conclusion
 
 Data shows that most cancellations are done in busy times were less drivers are available, more traffic is on it's way and drivers take a longer time to get to the customer.
-Even though the time until a cancellation is done increases at these times, there are still more cancellations registered. 
-In this case, a deeper analysis of available drivers and the distribution of drivers and orders could help to improve in terms of availability and eta. 
+Even though the time until a cancellation is done increases at these times, there are still more cancellations registered.
+In this case, a deeper analysis of available drivers and the distribution of drivers and orders could help to improve in terms of availability and eta.
